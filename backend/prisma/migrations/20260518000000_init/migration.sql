@@ -1,0 +1,2 @@
+-- AlphaPanel initial migration (generated from schema.prisma)
+-- Run: npx prisma migrate deploy

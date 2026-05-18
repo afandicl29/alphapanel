@@ -1,0 +1,503 @@
+// AlphaPanel — Prisma schema (MariaDB/MySQL)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  RESELLER
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum HostingStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  DELETED
+}
+
+enum SslType {
+  LETS_ENCRYPT
+  MANUAL
+}
+
+enum SslStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  FAILED
+}
+
+enum BackupType {
+  FULL
+  DATABASE
+  FILES
+}
+
+enum BackupStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum WebServerType {
+  NGINX
+  APACHE
+}
+
+enum DockerStatus {
+  RUNNING
+  STOPPED
+  RESTARTING
+  ERROR
+}
+
+enum NotificationChannel {
+  EMAIL
+  DISCORD
+  TELEGRAM
+}
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  username          String     @unique
+  passwordHash      String
+  displayName       String?
+  role              UserRole   @default(USER)
+  status            UserStatus @default(ACTIVE)
+  parentId          String?
+  parent            User?      @relation("ResellerTree", fields: [parentId], references: [id])
+  children          User[]     @relation("ResellerTree")
+  twoFactorEnabled  Boolean    @default(false)
+  twoFactorSecret   String?
+  avatarUrl         String?
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  hostingAccounts   HostingAccount[]
+  domains           Domain[]
+  apiTokens         ApiToken[]
+  loginHistory      LoginHistory[]
+  activityLogs      ActivityLog[]
+  notificationPrefs NotificationPreference[]
+  sessions          Session[]
+
+  @@index([parentId])
+  @@index([role])
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique @db.VarChar(128)
+  userAgent        String?   @db.Text
+  ipAddress        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastActiveAt     DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Server {
+  id          String   @id @default(cuid())
+  name        String
+  hostname    String   @unique
+  ipAddress   String
+  osVersion   String?
+  isPrimary   Boolean  @default(false)
+  daemonToken String?  @db.VarChar(512)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hostingAccounts HostingAccount[]
+
+  @@map("servers")
+}
+
+model Package {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?  @db.Text
+  diskQuotaMb     Int      @default(10240)
+  bandwidthMb     Int      @default(102400)
+  maxDomains      Int      @default(5)
+  maxDatabases    Int      @default(5)
+  maxEmailAccounts Int     @default(10)
+  maxSubdomains   Int      @default(20)
+  maxFtpAccounts  Int      @default(5)
+  phpVersions     Json     @default("[\"8.2\",\"8.3\"]")
+  dockerEnabled   Boolean  @default(false)
+  isReseller      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  hostingAccounts HostingAccount[]
+
+  @@map("packages")
+}
+
+model HostingAccount {
+  id            String        @id @default(cuid())
+  username      String        @unique
+  domain        String
+  homePath      String
+  status        HostingStatus @default(ACTIVE)
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId     String
+  package       Package       @relation(fields: [packageId], references: [id])
+  serverId      String
+  server        Server        @relation(fields: [serverId], references: [id])
+  phpVersion    String        @default("8.3")
+  webServer     WebServerType @default(NGINX)
+  diskUsedMb    Int           @default(0)
+  bandwidthUsedMb Int         @default(0)
+  suspendedAt   DateTime?
+  suspendedReason String?     @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  domains       Domain[]
+  databases     DatabaseInstance[]
+  emailAccounts EmailAccount[]
+  sslCerts      SslCertificate[]
+  backups       Backup[]
+  dockerContainers DockerContainer[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("hosting_accounts")
+}
+
+model Domain {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  isPrimary        Boolean  @default(true)
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hostingAccountId String?
+  hostingAccount   HostingAccount? @relation(fields: [hostingAccountId], references: [id], onDelete: SetNull)
+  documentRoot     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  subdomains Subdomain[]
+  dnsRecords DnsRecord[]
+  redirects  DomainRedirect[]
+  sslCerts   SslCertificate[]
+
+  @@index([userId])
+  @@index([hostingAccountId])
+  @@map("domains")
+}
+
+model Subdomain {
+  id         String   @id @default(cuid())
+  name       String
+  domainId   String
+  domain     Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  documentRoot String?
+  createdAt  DateTime @default(now())
+
+  @@unique([domainId, name])
+  @@map("subdomains")
+}
+
+model DnsRecord {
+  id       String @id @default(cuid())
+  domainId String
+  domain   Domain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  type     String // A, AAAA, CNAME, MX, TXT, NS
+  name     String
+  content  String @db.Text
+  ttl      Int    @default(3600)
+  priority Int?
+
+  @@index([domainId])
+  @@map("dns_records")
+}
+
+model DomainRedirect {
+  id         String  @id @default(cuid())
+  domainId   String
+  domain     Domain  @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  sourcePath String  @default("/")
+  targetUrl  String  @db.Text
+  statusCode Int     @default(301)
+  isActive   Boolean @default(true)
+
+  @@map("domain_redirects")
+}
+
+model SslCertificate {
+  id               String    @id @default(cuid())
+  domainName       String
+  type             SslType
+  status           SslStatus @default(PENDING)
+  certificate      String?   @db.LongText
+  privateKey       String?   @db.LongText
+  chain            String?   @db.LongText
+  expiresAt        DateTime?
+  autoRenew        Boolean   @default(true)
+  hostingAccountId String?
+  hostingAccount   HostingAccount? @relation(fields: [hostingAccountId], references: [id], onDelete: SetNull)
+  domainId         String?
+  domain           Domain?   @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([domainName])
+  @@map("ssl_certificates")
+}
+
+model DatabaseInstance {
+  id               String   @id @default(cuid())
+  name             String
+  charset          String   @default("utf8mb4")
+  hostingAccountId String
+  hostingAccount   HostingAccount @relation(fields: [hostingAccountId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  users DatabaseUser[]
+
+  @@unique([hostingAccountId, name])
+  @@map("databases")
+}
+
+model DatabaseUser {
+  id         String   @id @default(cuid())
+  username   String
+  password   String   // encrypted at rest
+  databaseId String
+  database   DatabaseInstance @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+  privileges Json   @default("[\"ALL\"]")
+  createdAt  DateTime @default(now())
+
+  @@unique([databaseId, username])
+  @@map("database_users")
+}
+
+model EmailAccount {
+  id               String   @id @default(cuid())
+  address          String   @unique
+  passwordHash     String
+  quotaMb          Int      @default(1024)
+  hostingAccountId String
+  hostingAccount   HostingAccount @relation(fields: [hostingAccountId], references: [id], onDelete: Cascade)
+  dkimEnabled      Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  @@index([hostingAccountId])
+  @@map("email_accounts")
+}
+
+model EmailDnsConfig {
+  id        String @id @default(cuid())
+  domain    String @unique
+  spfRecord String? @db.Text
+  dkimKey   String? @db.LongText
+  dmarcRecord String? @db.Text
+
+  @@map("email_dns_configs")
+}
+
+model DockerContainer {
+  id               String       @id @default(cuid())
+  name             String
+  image            String
+  status           DockerStatus @default(STOPPED)
+  ports            Json?
+  composeFile      String?      @db.LongText
+  hostingAccountId String?
+  hostingAccount   HostingAccount? @relation(fields: [hostingAccountId], references: [id], onDelete: SetNull)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@map("docker_containers")
+}
+
+model Backup {
+  id               String       @id @default(cuid())
+  name             String
+  type             BackupType
+  status           BackupStatus @default(PENDING)
+  path             String?
+  sizeBytes        BigInt?
+  hostingAccountId String?
+  hostingAccount   HostingAccount? @relation(fields: [hostingAccountId], references: [id], onDelete: SetNull)
+  scheduled        Boolean      @default(false)
+  cronExpression   String?
+  completedAt      DateTime?
+  createdAt        DateTime     @default(now())
+
+  @@index([hostingAccountId])
+  @@map("backups")
+}
+
+model FirewallRule {
+  id          String   @id @default(cuid())
+  name        String
+  port        Int
+  protocol    String   @default("tcp")
+  action      String   @default("allow") // allow | deny
+  sourceIp    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("firewall_rules")
+}
+
+model BlockedIp {
+  id        String   @id @default(cuid())
+  ipAddress String   @unique
+  reason    String?  @db.Text
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("blocked_ips")
+}
+
+model Fail2BanJail {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  enabled   Boolean  @default(true)
+  maxRetry  Int      @default(5)
+  banTime   Int      @default(3600)
+  createdAt DateTime @default(now())
+
+  @@map("fail2ban_jails")
+}
+
+model CronJob {
+  id               String   @id @default(cuid())
+  name             String
+  command          String   @db.Text
+  schedule         String
+  isActive         Boolean  @default(true)
+  hostingAccountId String?
+  lastRunAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  @@map("cron_jobs")
+}
+
+model PhpVersion {
+  id        String   @id @default(cuid())
+  version   String   @unique
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  extensions Json   @default("[]")
+
+  @@map("php_versions")
+}
+
+model OneClickApp {
+  id          String @id @default(cuid())
+  slug        String @unique
+  name        String
+  description String? @db.Text
+  scriptPath  String
+  isActive    Boolean @default(true)
+
+  @@map("one_click_apps")
+}
+
+model ApiToken {
+  id        String   @id @default(cuid())
+  name      String
+  tokenHash String   @unique
+  scopes    Json     @default("[\"read\"]")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime?
+  lastUsedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("api_tokens")
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String
+  userAgent String?  @db.Text
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("login_history")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  resource  String?
+  resourceId String?
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model NotificationPreference {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+  config    Json                // email, webhook url, chat id
+
+  @@unique([userId, channel])
+  @@map("notification_preferences")
+}
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+
+  @@map("system_settings")
+}
+
+model MetricsSnapshot {
+  id              String   @id @default(cuid())
+  cpuPercent      Float
+  ramUsedMb       Int
+  ramTotalMb      Int
+  diskUsedPercent Float
+  networkRxBytes  BigInt   @default(0)
+  networkTxBytes  BigInt   @default(0)
+  recordedAt      DateTime @default(now())
+
+  @@index([recordedAt])
+  @@map("metrics_snapshots")
+}
