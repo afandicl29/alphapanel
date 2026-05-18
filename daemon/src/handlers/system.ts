@@ -1,0 +1,16 @@
+export const systemHandlers: Record<string, (p: Record<string, unknown>) => Promise<unknown>> = {
+  'webserver.status': async () => ({ nginx: 'active', apache: 'inactive' }),
+  'nginx.config': async (p) => ({ applied: p.hostingAccountId }),
+  'nginx.reverse_proxy': async (p) => ({ proxy: p }),
+  'apache.toggle': async (p) => ({ enabled: p.enabled }),
+  'php.selector': async (p) => ({ version: p.version }),
+  'php.extension': async (p) => ({ extension: p.extension, enabled: p.enabled }),
+  'email.create': async (p) => ({ address: p.address }),
+  'backup.run': async (p) => ({ backupId: p.backupId }),
+  'backup.restore': async (p) => ({ backupId: p.backupId }),
+  'fail2ban.sync': async () => ({ synced: true }),
+  'logs.tail': async (p) => ({ lines: [`[AlphaPanel] Log tail for ${p.service ?? 'system'}`] }),
+  'process.list': async () => ({ processes: [] }),
+  'services.status': async () => ({ services: [{ name: 'nginx', status: 'active' }] }),
+  'installer.run': async (p) => ({ slug: p.slug, installed: true }),
+};

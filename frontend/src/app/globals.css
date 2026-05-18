@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 214 45% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 217 91% 55%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 214 32% 92%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 214 95% 93%;
+    --accent-foreground: 222 47% 11%;
+    --border: 214 28% 88%;
+    --radius: 0.75rem;
+    --sidebar-from: #0c4a6e;
+    --sidebar-mid: #1e40af;
+    --sidebar-to: #312e81;
+  }
+
+  .dark {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 40% 8%;
+    --card-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 217 28% 14%;
+    --muted-foreground: 215 18% 62%;
+    --accent: 217 33% 14%;
+    --accent-foreground: 210 40% 98%;
+    --border: 217 28% 16%;
+    --sidebar-from: #082f49;
+    --sidebar-mid: #1e3a8a;
+    --sidebar-to: #1e1b4b;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37, 99, 235, 0.15), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(14, 165, 233, 0.08), transparent);
+  }
+
+  body:not(.dark) {
+    background-image:
+      radial-gradient(at 40% 0%, rgba(14, 165, 233, 0.12) 0px, transparent 55%),
+      radial-gradient(at 90% 10%, rgba(79, 70, 229, 0.08) 0px, transparent 50%);
+  }
+}
+
+@layer components {
+  .alpha-sidebar {
+    background: linear-gradient(
+      180deg,
+      var(--sidebar-from) 0%,
+      var(--sidebar-mid) 42%,
+      var(--sidebar-to) 100%
+    );
+  }
+
+  .cpanel-panel {
+    @apply rounded-xl border border-border/70 bg-card/90 shadow-glass backdrop-blur-sm;
+  }
+
+  .cpanel-stat-card {
+    @apply cpanel-panel p-4 sm:p-5 transition-shadow hover:shadow-lg hover:shadow-blue-500/5;
+  }
+
+  .cpanel-shortcut {
+    @apply flex flex-col items-start rounded-xl border border-border/60 bg-card/80 p-3 transition-all
+      hover:border-primary/30 hover:bg-accent/50 hover:shadow-md;
+  }
+
+  .glass-card {
+    @apply rounded-xl border border-white/25 bg-white/75 shadow-glass backdrop-blur-xl
+      dark:border-white/10 dark:bg-card/60;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+}
