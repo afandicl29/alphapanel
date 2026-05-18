@@ -1,0 +1,19 @@
+{
+  "name": "@alphapanel/workers",
+  "version": "1.0.0",
+  "description": "AlphaPanel BullMQ workers",
+  "private": true,
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "start:dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}

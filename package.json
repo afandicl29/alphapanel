@@ -1,0 +1,17 @@
+{
+  "name": "alphapanel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AlphaPanel — Modern self-hosted hosting control panel",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "daemon",
+    "workers"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev -w @alphapanel/backend",
+    "dev:web": "npm run dev -w @alphapanel/frontend",
+    "build": "npm run build -w @alphapanel/backend && npm run build -w @alphapanel/frontend"
+  }
+}
